@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extractive Text Summarizer - NLP Lab Project</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="background-globes">
+        <div class="globe globe-1"></div>
+        <div class="globe globe-2"></div>
+        <div class="globe globe-3"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-badge">
+                <i class="fa-solid fa-flask"></i> NLP Lab Project
+            </div>
+            <h1 class="app-title"><i class="fa-solid fa-file-contract gradient-icon"></i> Text Summarizer</h1>
+            <p class="app-subtitle">Extractive Summarization using Sentence Scoring, Word Frequency & Tokenization</p>
+        </header>
+
+        <!-- Main Workspace Grid -->
+        <main class="main-workspace">
+            <!-- Left Panel: Input & Controls -->
+            <section class="card input-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i class="fa-solid fa-align-left text-primary"></i> Input Article / Text
+                    </div>
+                    <div class="presets-wrapper">
+                        <span class="preset-label">Samples:</span>
+                        {% for key, sample in samples.items() %}
+                        <button type="button" class="btn-preset" data-sample="{{ key }}" title="Load {{ sample.title }}">
+                            {{ sample.title.split()[0] }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="textarea-wrapper">
+                        <textarea id="inputText" placeholder="Paste your article, essay, or research paragraph here (minimum 15 words)..." rows="12"></textarea>
+                        <div class="textarea-footer">
+                            <span id="inputWordCount" class="badge-count"><i class="fa-solid fa-font"></i> 0 words</span>
+                            <span id="inputSentenceCount" class="badge-count"><i class="fa-solid fa-list-ol"></i> 0 sentences</span>
+                            <button id="btnClear" type="button" class="btn-icon" title="Clear text"><i class="fa-solid fa-trash-can"></i> Clear</button>
+                        </div>
+                    </div>
+
+                    <!-- Options Controls -->
+                    <div class="controls-panel">
+                        <div class="control-group">
+                            <label for="compressionRange" class="control-label">
+                                <span>Summary Target Length: <strong id="compressionValue">30%</strong></span>
+                                <span class="sub-text">(Top scoring sentences)</span>
+                            </label>
+                            <div class="slider-container">
+                                <span class="slider-min">10%</span>
+                                <input type="range" id="compressionRange" min="10" max="70" value="30" step="5">
+                                <span class="slider-max">70%</span>
+                            </div>
+                        </div>
+
+                        <div class="action-bar">
+                            <button id="btnSummarize" type="button" class="btn-primary">
+                                <span class="btn-text"><i class="fa-solid fa-wand-magic-sparkles"></i> Summarize Text</span>
+                                <span class="btn-spinner spinner-hidden"><i class="fa-solid fa-circle-notch fa-spin"></i> Processing...</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Alert / Error message container -->
+                    <div id="alertBox" class="alert-box alert-hidden">
+                        <i class="fa-solid fa-triangle-exclamation alert-icon"></i>
+                        <span id="alertMessage">Please enter text to summarize.</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Results & Analytics -->
+            <section class="card results-card">
+                <!-- Metrics Bar (Hidden initially) -->
+                <div id="metricsBar" class="metrics-grid metrics-hidden">
+                    <div class="metric-box">
+                        <div class="metric-icon icon-blue"><i class="fa-solid fa-file-word"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">Original Words</span>
+                            <span id="metricOrigWords" class="metric-val">0</span>
+                        </div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-icon icon-purple"><i class="fa-solid fa-scissors"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">Summary Words</span>
+                            <span id="metricSummWords" class="metric-val">0</span>
+                        </div>
+                    </div>
+                    <div class="metric-box highlight-box">
+                        <div class="metric-icon icon-green"><i class="fa-solid fa-chart-pie"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">Compression Ratio</span>
+                            <span id="metricCompression" class="metric-val">0%</span>
+                        </div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-icon icon-orange"><i class="fa-solid fa-list-check"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">Sentences Selected</span>
+                            <span id="metricSentences" class="metric-val">0 / 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div class="tabs-header">
+                    <button class="tab-btn active" data-tab="tabSummary">
+                        <i class="fa-solid fa-align-left"></i> Concise Summary
+                    </button>
+                    <button class="tab-btn" data-tab="tabHighlight">
+                        <i class="fa-solid fa-highlighter"></i> Extracted Highlights
+                    </button>
+                    <button class="tab-btn" data-tab="tabKeywords">
+                        <i class="fa-solid fa-key"></i> Key Frequencies
+                    </button>
+                    <button class="tab-btn" data-tab="tabScores">
+                        <i class="fa-solid fa-chart-bar"></i> Sentence Scores
+                    </button>
+                </div>
+
+                <!-- Tab Contents -->
+                <div class="tab-content-container">
+                    <!-- Tab 1: Summary Output -->
+                    <div id="tabSummary" class="tab-pane active">
+                        <div id="placeholderState" class="empty-state">
+                            <i class="fa-solid fa-brain empty-icon"></i>
+                            <h3>Ready for Summarization</h3>
+                            <p>Enter text on the left or select a sample article, then click "Summarize Text" to view extractive summary metrics.</p>
+                        </div>
+                        <div id="summaryResultState" class="summary-result-box result-hidden">
+                            <div class="result-toolbar">
+                                <span class="result-badge"><i class="fa-solid fa-check"></i> Extractive Summary Generated</span>
+                                <div class="tool-actions">
+                                    <button id="btnCopy" class="btn-small" title="Copy to clipboard">
+                                        <i class="fa-regular fa-copy"></i> Copy
+                                    </button>
+                                    <button id="btnDownload" class="btn-small" title="Download as text file">
+                                        <i class="fa-solid fa-download"></i> Save .txt
+                                    </button>
+                                    <button id="btnSpeak" class="btn-small" title="Read summary aloud">
+                                        <i class="fa-solid fa-volume-high"></i> Listen
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="summaryText" class="summary-content"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Highlighted Original Text -->
+                    <div id="tabHighlight" class="tab-pane">
+                        <div class="highlight-info-banner">
+                            <i class="fa-solid fa-circle-info"></i> Sentences selected by the extractive scoring algorithm are highlighted below in <span class="highlight-legend">purple glow</span>.
+                        </div>
+                        <div id="highlightContent" class="highlighted-text-box">
+                            <p class="text-muted">Generate a summary to view highlighted sentences in original article.</p>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: Word Frequency Breakdown -->
+                    <div id="tabKeywords" class="tab-pane">
+                        <div class="keywords-container">
+                            <h4>Top Frequency Keywords (Stopwords Removed)</h4>
+                            <p class="sub-text">Extractive summarization scores sentences using normalized counts of these top non-stopword tokens.</p>
+                            <div id="keywordsList" class="keywords-flex">
+                                <span class="text-muted">No keywords extracted yet.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Sentence Score Analytics Table -->
+                    <div id="tabScores" class="tab-pane">
+                        <div class="scores-table-wrapper">
+                            <table class="scores-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 10%;">#</th>
+                                        <th style="width: 55%;">Sentence Content</th>
+                                        <th style="width: 15%;">Words</th>
+                                        <th style="width: 20%;">Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scoresTableBody">
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted">No sentence scores available.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Natural Language Processing Lab Demo • Built with Flask & Pure Python Extractive Summarization</p>
+        </footer>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
